@@ -1,0 +1,14 @@
+{
+    "bitcoin": {
+      "contracts": []
+    },
+    "ethereum": {
+      "contracts": []
+    },
+    "velodrome-finance": {
+      "contracts": []
+    },
+    "aerodrome-finance": {
+      "contracts": []
+    }
+  }
