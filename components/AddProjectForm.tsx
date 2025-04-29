@@ -68,7 +68,8 @@ export function AddProjectForm() {
     }
   }, [selectedToken, moatFactor, addProject]);
 
-  const handleLogoError = (address: string) => {
+  const handleLogoError = (address: string, logoUrl: string | null) => {
+    console.log(`Ошибка загрузки логотипа для ${address}: ${logoUrl ?? "URL отсутствует"}`);
     setLogoErrors((prev) => ({ ...prev, [address]: true }));
   };
 
@@ -91,10 +92,12 @@ export function AddProjectForm() {
                       height={24}
                       className="rounded-full"
                       loading="lazy"
-                      onError={() => handleLogoError(selectedToken.address)}
+                      onError={() => handleLogoError(selectedToken.address, selectedToken.logoUrl)}
                     />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-gray-200" />
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                      N/A
+                    </div>
                   )}
                   {selectedToken.name}{" "}
                   <Badge variant="outline" className="ml-2">
@@ -202,10 +205,12 @@ export function AddProjectForm() {
                           height={24}
                           className="rounded-full"
                           loading="lazy"
-                          onError={() => handleLogoError(token.address)}
+                          onError={() => handleLogoError(token.address, token.logoUrl)}
                         />
                       ) : (
-                        <div className="w-6 h-6 rounded-full bg-gray-200" />
+                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                          N/A
+                        </div>
                       )}
                       {token.name}{" "}
                       <Badge variant="outline" className="ml-2">

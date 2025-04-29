@@ -65,6 +65,27 @@ function formatDexId(dexId: string): string {
   }
 }
 
+/** Проверка валидности и доступности URL */
+async function validateImageUrl(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  try {
+    new URL(url);
+    // Проверка доступности изображения
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // Тайм-аут 3 секунды
+    const response = await fetch(url, { method: "HEAD", signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (response.ok && response.headers.get("content-type")?.startsWith("image/")) {
+      return url;
+    }
+    console.warn(`URL недоступен или не является изображением: ${url}`);
+    return null;
+  } catch (error) {
+    console.warn(`Ошибка при проверке URL: ${url}`, error);
+    return null;
+  }
+}
+
 /**
  * Поиск токенов/пулов по имени или символу через DexScreener API
  * @param query - строка для поиска (например, "uni")
@@ -75,11 +96,13 @@ export async function searchTokens(query: string): Promise<TokenSearchResult[]> 
     const response = await axios.get(`${DEXSCREENER_API}?q=${query}`);
     const queryLower = query.toLowerCase();
 
-    const filteredResults = response.data.pairs
-      .map((pair: any) => {
+    const filteredResults = await Promise.all(
+      response.data.pairs.map(async (pair: any) => {
+        const logoUrl = await validateImageUrl(pair.info?.imageUrl);
         console.log("DexScreener pair:", {
           address: pair.baseToken.address,
           imageUrl: pair.info?.imageUrl,
+          isValid: !!logoUrl,
         });
         return {
           address: pair.baseToken.address,
@@ -91,9 +114,12 @@ export async function searchTokens(query: string): Promise<TokenSearchResult[]> 
           volume24h: parseFloat(pair.volume?.h24 || "0"),
           poolType: formatDexId(pair.dexId || "Unknown"),
           blockchain: pair.chainId === "ethereum" ? "Ethereum" : pair.chainId.charAt(0).toUpperCase() + pair.chainId.slice(1),
-          logoUrl: pair.info?.imageUrl || null,
+          logoUrl,
         };
       })
+    );
+
+    return filteredResults
       .filter((token: TokenSearchResult) => {
         const nameLower = token.name.toLowerCase();
         const symbolLower = token.symbol.toLowerCase();
@@ -105,9 +131,8 @@ export async function searchTokens(query: string): Promise<TokenSearchResult[]> 
         const aExact = aNameLower === queryLower || a.symbol.toLowerCase() === queryLower ? -1 : 0;
         const bExact = bNameLower === queryLower || b.symbol.toLowerCase() === queryLower ? -1 : 0;
         return aExact - bExact || aNameLower.localeCompare(bNameLower);
-      });
-
-    return filteredResults.slice(0, 10);
+      })
+      .slice(0, 10);
   } catch (error) {
     console.error("Ошибка при поиске токенов:", error);
     return [];
@@ -118,9 +143,10 @@ export async function searchTokens(query: string): Promise<TokenSearchResult[]> 
  * Получение данных о токене/пуле по его адресу и chainId
  * @param address - адрес токена
  * @param chainId - идентификатор блокчейна
+ * @param currentAth - текущее значение ATH (для надёжного обновления)
  * @returns объект с данными токена/пула
  */
-export async function getTokenData(address: string, chainId: string): Promise<TokenData> {
+export async function getTokenData(address: string, chainId: string, currentAth: number | null = null): Promise<TokenData> {
   try {
     const dexResponse = await axios.get(`${DEXSCREENER_API}?q=${address}&chainId=${chainId}`);
     const pair = dexResponse.data.pairs[0];
@@ -129,11 +155,14 @@ export async function getTokenData(address: string, chainId: string): Promise<To
     }
 
     let ath: number | null = pair.athUsd ? parseFloat(pair.athUsd) : null;
-    let logoUrl: string | null = pair.info?.imageUrl || null;
+    let logoUrl: string | null = await validateImageUrl(pair.info?.imageUrl);
 
     console.log("DexScreener token data:", {
       address: pair.baseToken.address,
       imageUrl: pair.info?.imageUrl,
+      isValid: !!logoUrl,
+      ath: ath,
+      source: "DexScreener",
     });
 
     try {
@@ -142,17 +171,34 @@ export async function getTokenData(address: string, chainId: string): Promise<To
         `${COINGECKO_API}/coins/${platform}/contract/${address}`
       );
       if (cgResponse.data.market_data?.ath?.usd) {
-        ath = cgResponse.data.market_data.ath.usd;
+        const cgAth = cgResponse.data.market_data.ath.usd;
+        ath = ath !== null ? Math.max(ath, cgAth) : cgAth;
       }
       if (cgResponse.data.image?.small && !logoUrl) {
-        logoUrl = cgResponse.data.image.small;
+        logoUrl = await validateImageUrl(cgResponse.data.image.small);
       }
       console.log("CoinGecko token data:", {
         address,
         logo: cgResponse.data.image?.small,
+        isValid: !!logoUrl,
+        ath: cgResponse.data.market_data?.ath?.usd,
+        source: "CoinGecko",
       });
     } catch (cgError) {
       console.warn(`CoinGecko не вернул данные для ${address} на ${chainId}:`, cgError);
+    }
+
+    // Надёжное обновление ATH: сохраняем старое значение, если новое меньше или отсутствует
+    let finalAth: number | null = currentAth;
+    if (ath !== null) {
+      if (currentAth === null || ath > currentAth) {
+        finalAth = ath;
+        console.log(`ATH обновлён для ${address}: ${currentAth} → ${finalAth}`);
+      } else {
+        console.log(`ATH не обновлён для ${address}: текущее ${currentAth}, новое ${ath}`);
+      }
+    } else {
+      console.log(`ATH не обновлён для ${address}: API вернул null, текущее значение ${currentAth}`);
     }
 
     return {
@@ -163,7 +209,7 @@ export async function getTokenData(address: string, chainId: string): Promise<To
       chainId: pair.chainId,
       blockchain: pair.chainId === "ethereum" ? "Ethereum" : pair.chainId.charAt(0).toUpperCase() + pair.chainId.slice(1),
       currentPrice: parseFloat(pair.priceUsd),
-      ath,
+      ath: finalAth,
       marketCap: parseFloat(pair.fdv),
       liquidity: parseFloat(pair.liquidity?.usd || "0"),
       volume24h: parseFloat(pair.volume?.h24 || "0"),
