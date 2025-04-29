@@ -39,6 +39,57 @@ import Link from "next/link";
 // Функция для создания задержки
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Функция для форматирования цен с 3+ нулями после запятой
+const formatPriceWithSuperscript = (price: number): string => {
+  // Преобразуем цену в строку с фиксированным количеством знаков
+  const priceStr = price.toFixed(8); // Используем 8 знаков для точности
+  const [integerPart, decimalPart] = priceStr.split(".");
+
+  // Если нет дробной части или цена больше 1, возвращаем стандартное форматирование
+  if (!decimalPart || parseFloat(integerPart) >= 1) {
+    return price.toFixed(3);
+  }
+
+  // Считаем количество нулей после запятой до первой ненулевой цифры
+  let zeroCount = 0;
+  let remainingDigits = "";
+  for (let i = 0; i < decimalPart.length; i++) {
+    if (decimalPart[i] === "0") {
+      zeroCount++;
+    } else {
+      remainingDigits = decimalPart.slice(i);
+      break;
+    }
+  }
+
+  // Если нулей меньше 3, возвращаем стандартное форматирование
+  if (zeroCount < 3) {
+    return price.toFixed(3);
+  }
+
+  // Используем Unicode-символы для верхнего индекса
+  const superscriptDigits: { [key: string]: string } = {
+    "0": "⁰",
+    "1": "¹",
+    "2": "²",
+    "3": "³",
+    "4": "⁴",
+    "5": "⁵",
+    "6": "⁶",
+    "7": "⁷",
+    "8": "⁸",
+    "9": "⁹",
+  };
+  const superscriptZeroCount = zeroCount
+    .toString()
+    .split("")
+    .map((digit) => superscriptDigits[digit])
+    .join("");
+
+  // Формируем итоговую строку: 0.0ⁿ<остальные цифры>
+  return `0.0${superscriptZeroCount}${remainingDigits.slice(0, 3)}`; // Ограничиваем 3 значащими цифрами
+};
+
 export function ProjectTable() {
   const { projects, removeProject, updateProject, updateMultipleProjects } = useProjectStore();
   const [deleteAddress, setDeleteAddress] = useState<string | null>(null);
@@ -179,10 +230,10 @@ export function ProjectTable() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium text-gray-900">
-                        ${typeof project.currentPrice === "number" ? project.currentPrice.toFixed(3) : "N/A"}
+                        ${typeof project.currentPrice === "number" ? formatPriceWithSuperscript(project.currentPrice) : "N/A"}
                       </TableCell>
                       <TableCell className="font-medium text-amber-600">
-                        {project.ath !== null ? `$${project.ath.toFixed(2)}` : "N/A"}
+                        ${project.ath !== null ? formatPriceWithSuperscript(project.ath) : "N/A"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -207,9 +258,11 @@ export function ProjectTable() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium text-emerald-600">${intrinsicValue.toFixed(3)}</TableCell>
+                      <TableCell className="font-medium text-emerald-600">
+                        ${formatPriceWithSuperscript(intrinsicValue)}
+                      </TableCell>
                       <TableCell className={`font-medium ${isBuyOpportunity ? "text-green-600" : "text-gray-900"}`}>
-                        ${buyPrice.toFixed(3)}
+                        ${formatPriceWithSuperscript(buyPrice)}
                         {isBuyOpportunity && (
                           <Badge className="ml-2 bg-green-100 text-green-800 hover:bg-green-200">Выгодно</Badge>
                         )}
