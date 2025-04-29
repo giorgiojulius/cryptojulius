@@ -1,10 +1,22 @@
-"use client"
+// components/ProjectTable.tsx
+"use client";
 
-import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useProjectStore } from "@/store/useProjectStore"
-import { calculateIntrinsicValue, calculateRecommendedBuyPrice } from "@/lib/analysis"
-import { MARGIN_OF_SAFETY } from "@/lib/constants"
+import { useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useProjectStore } from "@/store/useProjectStore";
+import {
+  calculateIntrinsicValue,
+  calculateRecommendedBuyPrice,
+  calculateMarginOfSafety,
+} from "@/lib/analysis";
+import { MARGIN_OF_SAFETY } from "@/lib/constants";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,34 +26,40 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Trash2, Save, AlertCircle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Save, AlertCircle } from "lucide-react";
+import Image from "next/image";
 
 export function ProjectTable() {
-  const { projects, removeProject, updateProject } = useProjectStore()
-  const [deleteAddress, setDeleteAddress] = useState<string | null>(null)
-  const [editMoat, setEditMoat] = useState<{ [key: string]: string }>({})
+  const { projects, removeProject, updateProject } = useProjectStore();
+  const [deleteAddress, setDeleteAddress] = useState<string | null>(null);
+  const [editMoat, setEditMoat] = useState<{ [key: string]: string }>({});
+  const [logoErrors, setLogoErrors] = useState<{ [key: string]: boolean }>({});
 
   const handleMoatChange = (address: string, value: string) => {
-    setEditMoat((prev) => ({ ...prev, [address]: value }))
-  }
+    setEditMoat((prev) => ({ ...prev, [address]: value }));
+  };
 
   const handleMoatSave = (address: string) => {
-    const value = Number.parseFloat(editMoat[address])
+    const value = Number.parseFloat(editMoat[address]);
     if (isNaN(value) || value < 0 || value > 1) {
-      alert("Фактор 'рва' должен быть числом от 0 до 1")
-      return
+      alert("Фактор 'рва' должен быть числом от 0 до 1");
+      return;
     }
-    updateProject(address, { moatFactor: value })
+    updateProject(address, { moatFactor: value });
     setEditMoat((prev) => {
-      const newState = { ...prev }
-      delete newState[address]
-      return newState
-    })
-  }
+      const newState = { ...prev };
+      delete newState[address];
+      return newState;
+    });
+  };
+
+  const handleLogoError = (address: string) => {
+    setLogoErrors((prev) => ({ ...prev, [address]: true }));
+  };
 
   if (projects.length === 0) {
     return (
@@ -50,7 +68,7 @@ export function ProjectTable() {
         <p className="text-gray-500 text-lg">Пока не добавлено ни одного проекта.</p>
         <p className="text-gray-400 text-sm mt-2">Добавьте проект, чтобы начать анализ.</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -65,21 +83,41 @@ export function ProjectTable() {
             <TableHead className="text-gray-700 font-medium">Фактор "рва"</TableHead>
             <TableHead className="text-gray-700 font-medium">Внутренняя стоимость</TableHead>
             <TableHead className="text-gray-700 font-medium">Рекомендуемая цена</TableHead>
+            <TableHead className="text-gray-700 font-medium">Маржа безопасности</TableHead>
             <TableHead className="text-gray-700 font-medium w-[80px]">Действия</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {projects.map((project) => {
-            const intrinsicValue = calculateIntrinsicValue(project.ath ?? project.currentPrice, project.moatFactor)
-            const buyPrice = calculateRecommendedBuyPrice(intrinsicValue, MARGIN_OF_SAFETY)
-            const isEditingMoat = editMoat[project.address] !== undefined
-
-            // Determine if current price is below recommended buy price
-            const isBuyOpportunity = project.currentPrice < buyPrice
+            const intrinsicValue = calculateIntrinsicValue(
+              project.ath ?? project.currentPrice,
+              project.moatFactor
+            );
+            const buyPrice = calculateRecommendedBuyPrice(intrinsicValue, MARGIN_OF_SAFETY);
+            const marginOfSafety = calculateMarginOfSafety(intrinsicValue, project.currentPrice);
+            const isEditingMoat = editMoat[project.address] !== undefined;
+            const isBuyOpportunity = project.currentPrice < buyPrice;
 
             return (
               <TableRow key={project.address} className="hover:bg-gray-50 transition-colors">
-                <TableCell className="font-medium text-gray-900">{project.name}</TableCell>
+                <TableCell className="font-medium text-gray-900">
+                  <div className="flex items-center gap-2">
+                    {project.logoUrl && !logoErrors[project.address] ? (
+                      <Image
+                        src={project.logoUrl}
+                        alt={`${project.name} logo`}
+                        width={24}
+                        height={24}
+                        className="rounded-full"
+                        loading="lazy"
+                        onError={() => handleLogoError(project.address)}
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-gray-200" />
+                    )}
+                    {project.name}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="bg-gray-50 text-gray-700 font-medium">
                     {project.symbol}
@@ -121,6 +159,9 @@ export function ProjectTable() {
                     <Badge className="ml-2 bg-green-100 text-green-800 hover:bg-green-200">Выгодно</Badge>
                   )}
                 </TableCell>
+                <TableCell className="font-medium text-gray-900">
+                  {marginOfSafety !== null ? `${marginOfSafety.toFixed(2)}%` : "N/A"}
+                </TableCell>
                 <TableCell>
                   <Button
                     variant="ghost"
@@ -133,7 +174,7 @@ export function ProjectTable() {
                   </Button>
                 </TableCell>
               </TableRow>
-            )
+            );
           })}
         </TableBody>
       </Table>
@@ -157,8 +198,8 @@ export function ProjectTable() {
             <AlertDialogAction
               onClick={() => {
                 if (deleteAddress) {
-                  removeProject(deleteAddress)
-                  setDeleteAddress(null)
+                  removeProject(deleteAddress);
+                  setDeleteAddress(null);
                 }
               }}
               className="bg-red-600 hover:bg-red-700 text-white"
@@ -169,5 +210,5 @@ export function ProjectTable() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

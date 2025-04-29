@@ -7,11 +7,12 @@ export interface Project {
     chainId: string;
     blockchain: string;
     currentPrice: number;
-    ath: number | null; // ATH может отсутствовать
+    ath: number | null;
     marketCap: number;
     liquidity: number;
     volume24h: number;
     poolType: string;
     moatFactor: number;
     timestamp: number;
+    logoUrl: string | null;
   }

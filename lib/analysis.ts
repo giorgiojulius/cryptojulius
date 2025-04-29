@@ -31,7 +31,23 @@ export function calculateIntrinsicValue(ath: number, moatFactor: number): number
   export function calculateMoatFactor(marketCap: number, liquidity: number): number {
     if (marketCap > 0) {
       const liquidityRatio = liquidity / marketCap;
-      return Math.min(Math.max(liquidityRatio, 0.1), 0.3); // Ограничение между 0.1 и 0.3
+      return Math.min(Math.max(liquidityRatio, 0.1), 0.3);
     }
-    return 0.2; // Значение по умолчанию
+    return 0.2;
+  }
+  
+  /**
+   * Расчёт маржи безопасности
+   * @param intrinsicValue - Внутренняя стоимость
+   * @param currentPrice - Текущая цена
+   * @returns Маржа безопасности в процентах или null, если расчёт невозможен
+   */
+  export function calculateMarginOfSafety(
+    intrinsicValue: number,
+    currentPrice: number
+  ): number | null {
+    if (intrinsicValue <= 0 || !Number.isFinite(currentPrice)) {
+      return null;
+    }
+    return ((Math.abs(intrinsicValue) - currentPrice) / Math.abs(intrinsicValue)) * 100;
   }

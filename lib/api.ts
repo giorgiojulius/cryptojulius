@@ -6,6 +6,9 @@ const COINGECKO_API = "https://api.coingecko.com/api/v3";
 
 interface CoinGeckoContractResponse {
   id: string;
+  image?: {
+    small: string;
+  };
   market_data?: {
     ath: {
       usd: number;
@@ -24,6 +27,7 @@ export interface TokenSearchResult {
   volume24h: number;
   poolType: string;
   blockchain: string;
+  logoUrl: string | null;
 }
 
 /** Данные о токене/пуле */
@@ -40,6 +44,25 @@ export interface TokenData {
   liquidity: number;
   volume24h: number;
   poolType: string;
+  logoUrl: string | null;
+}
+
+/** Преобразование dexId в человекочитаемый формат */
+function formatDexId(dexId: string): string {
+  switch (dexId.toLowerCase()) {
+    case "uniswap":
+      return "Uniswap";
+    case "pancakeswap":
+      return "PancakeSwap";
+    case "velodrome":
+      return "Velodrome";
+    case "aerodrome":
+      return "Aerodrome";
+    case "sushiswap":
+      return "SushiSwap";
+    default:
+      return dexId.charAt(0).toUpperCase() + dexId.slice(1);
+  }
 }
 
 /**
@@ -53,17 +76,24 @@ export async function searchTokens(query: string): Promise<TokenSearchResult[]> 
     const queryLower = query.toLowerCase();
 
     const filteredResults = response.data.pairs
-      .map((pair: any) => ({
-        address: pair.baseToken.address,
-        pairAddress: pair.pairAddress,
-        name: pair.baseToken.name,
-        symbol: pair.baseToken.symbol,
-        chainId: pair.chainId,
-        liquidityUsd: parseFloat(pair.liquidity?.usd || "0"),
-        volume24h: parseFloat(pair.volume?.h24 || "0"),
-        poolType: pair.info?.type || "Unknown",
-        blockchain: pair.chainId === "ethereum" ? "Ethereum" : pair.chainId.charAt(0).toUpperCase() + pair.chainId.slice(1),
-      }))
+      .map((pair: any) => {
+        console.log("DexScreener pair:", {
+          address: pair.baseToken.address,
+          imageUrl: pair.info?.imageUrl,
+        });
+        return {
+          address: pair.baseToken.address,
+          pairAddress: pair.pairAddress,
+          name: pair.baseToken.name,
+          symbol: pair.baseToken.symbol,
+          chainId: pair.chainId,
+          liquidityUsd: parseFloat(pair.liquidity?.usd || "0"),
+          volume24h: parseFloat(pair.volume?.h24 || "0"),
+          poolType: formatDexId(pair.dexId || "Unknown"),
+          blockchain: pair.chainId === "ethereum" ? "Ethereum" : pair.chainId.charAt(0).toUpperCase() + pair.chainId.slice(1),
+          logoUrl: pair.info?.imageUrl || null,
+        };
+      })
       .filter((token: TokenSearchResult) => {
         const nameLower = token.name.toLowerCase();
         const symbolLower = token.symbol.toLowerCase();
@@ -92,26 +122,37 @@ export async function searchTokens(query: string): Promise<TokenSearchResult[]> 
  */
 export async function getTokenData(address: string, chainId: string): Promise<TokenData> {
   try {
-    // Запрос к DexScreener для базовых данных
     const dexResponse = await axios.get(`${DEXSCREENER_API}?q=${address}&chainId=${chainId}`);
     const pair = dexResponse.data.pairs[0];
     if (!pair) {
       throw new Error("Пара токенов не найдена");
     }
 
-    // Попытка получить ATH из CoinGecko
     let ath: number | null = pair.athUsd ? parseFloat(pair.athUsd) : null;
+    let logoUrl: string | null = pair.info?.imageUrl || null;
+
+    console.log("DexScreener token data:", {
+      address: pair.baseToken.address,
+      imageUrl: pair.info?.imageUrl,
+    });
+
     try {
-      const platform = chainId === "ethereum" ? "ethereum" : chainId; // Сопоставление chainId с платформой CoinGecko
+      const platform = chainId === "ethereum" ? "ethereum" : chainId;
       const cgResponse = await axios.get<CoinGeckoContractResponse>(
         `${COINGECKO_API}/coins/${platform}/contract/${address}`
       );
       if (cgResponse.data.market_data?.ath?.usd) {
         ath = cgResponse.data.market_data.ath.usd;
       }
+      if (cgResponse.data.image?.small && !logoUrl) {
+        logoUrl = cgResponse.data.image.small;
+      }
+      console.log("CoinGecko token data:", {
+        address,
+        logo: cgResponse.data.image?.small,
+      });
     } catch (cgError) {
-      console.warn(`CoinGecko не вернул ATH для ${address} на ${chainId}:`, cgError);
-      // Используем athUsd из DexScreener, если доступно
+      console.warn(`CoinGecko не вернул данные для ${address} на ${chainId}:`, cgError);
     }
 
     return {
@@ -126,7 +167,8 @@ export async function getTokenData(address: string, chainId: string): Promise<To
       marketCap: parseFloat(pair.fdv),
       liquidity: parseFloat(pair.liquidity?.usd || "0"),
       volume24h: parseFloat(pair.volume?.h24 || "0"),
-      poolType: pair.info?.type || "Unknown",
+      poolType: formatDexId(pair.dexId || "Unknown"),
+      logoUrl,
     };
   } catch (error) {
     console.error("Ошибка при получении данных токена:", error);
