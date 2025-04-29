@@ -1,5 +1,6 @@
 // app/page.tsx
 import Link from "next/link";
+import Image from "next/image";
 import { ProjectTable } from "@/components/ProjectTable";
 import {
   Tooltip,
@@ -7,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Card, CardContent } from "@/components/ui/card";
 import { Info } from "lucide-react";
 
 export default function Home() {
@@ -23,7 +25,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold text-gray-800">Список проектов</h2>
+          <h2 className="text-xl font-semibold text-gray-800">Как рассчитывается "ров"?</h2>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
@@ -44,6 +46,32 @@ export default function Home() {
         </div>
 
         <ProjectTable />
+
+        <Card className="shadow-md border-none bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold">Geostocks by Giorgio Julius</h3>
+              <p className="text-sm opacity-90">
+                Исследуйте другой проект от Giorgio Julius — платформу для анализа и управления активами.
+              </p>
+              <Link
+                href="https://geostocks.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 bg-white text-purple-600 font-semibold px-4 py-2 rounded-md hover:bg-gray-100 transition-colors"
+              >
+                Перейти на Geostocks
+              </Link>
+            </div>
+            <Image
+              src="/gj.jpg"
+              alt="Giorgio Julius logo"
+              width={48}
+              height={48}
+              className="rounded-full"
+            />
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
