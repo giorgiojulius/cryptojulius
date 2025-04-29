@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardFooter, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useProjectStore } from "@/store/useProjectStore";
 import {
   calculateIntrinsicValue,
@@ -101,6 +101,11 @@ export function ProjectTable() {
         <AlertCircle className="h-12 w-12 text-gray-300 mb-4" />
         <p className="text-gray-500 text-lg">Пока не добавлено ни одного проекта.</p>
         <p className="text-gray-400 text-sm mt-2">Добавьте проект, чтобы начать анализ.</p>
+        <Link href="/add-project" className="mt-4">
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2">
+            Начать
+          </Button>
+        </Link>
       </div>
     );
   }
@@ -265,7 +270,7 @@ export function ProjectTable() {
         <CardFooter className="border-t p-0">
           <Button
             variant="default"
-            className="bg-black hover:bg-gray-800 text-white w-full rounded-none flex items-center gap-2 py-6"
+            className="bg-black hover:bg-gray-800 text-white w-full rounded-none rounded-b-lg flex items-center gap-2 py-6"
             asChild
           >
             <Link
@@ -275,14 +280,11 @@ export function ProjectTable() {
               className="flex items-center justify-center gap-3"
             >
               <span className="font-bold text-3xl leading-none">𝕏</span>
-              <p className="font-bold text-m leading-none">CryptoJulius by Giorgio Julius</p>
+              <p className="font-bold text-m leading-none">GeoStocks by Giorgio Julius</p>
               <Image src="/gj.jpg" alt="Giorgio Julius profile" width={32} height={32} className="rounded-full" />
             </Link>
           </Button>
         </CardFooter>
-        <CardDescription className="text-sm text-center text-slate-500 italic my-2">
-          Not financial advice, this is my research that I shared with you.
-        </CardDescription>
       </Card>
     </div>
   );
