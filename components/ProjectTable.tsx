@@ -333,7 +333,7 @@ export function ProjectTable() {
               className="flex items-center justify-center gap-3"
             >
               <span className="font-bold text-3xl leading-none">𝕏</span>
-              <p className="font-bold text-m leading-none">GeoStocks by Giorgio Julius</p>
+              <p className="font-bold text-m leading-none">CryptoJulius by Giorgio Julius</p>
               <Image src="/gj.jpg" alt="Giorgio Julius profile" width={32} height={32} className="rounded-full" />
             </Link>
           </Button>
